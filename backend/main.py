@@ -1,6 +1,6 @@
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -52,7 +52,7 @@ def chat(request: ChatRequest):
     user_prompt = request.prompt.strip()
 
     if not user_prompt:
-        return {"response": "Please enter a prompt."}
+        raise HTTPException(status_code=400, detail="Please enter a prompt.")
 
     system_prompt = """
     You are a helpful AI study tutor for university students.
@@ -69,7 +69,19 @@ def chat(request: ChatRequest):
 
     try:
         gemini_response = model.generate_content(final_prompt)
-        text = gemini_response.text if gemini_response.text else "No response from Gemini."
+        text = gemini_response.text if gemini_response.text else None
+
+        if not text:
+            raise HTTPException(
+                status_code=502,
+                detail="Gemini returned an empty response.",
+            )
+
         return {"response": text}
+    except HTTPException:
+        raise
     except Exception as e:
-        return {"response": f"Error calling Gemini: {str(e)}"}
+        raise HTTPException(
+            status_code=502,
+            detail=f"Error calling Gemini: {str(e)}",
+        ) from e

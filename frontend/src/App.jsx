@@ -1,14 +1,33 @@
 import { useEffect, useRef, useState } from "react";
 
+const WELCOME_MESSAGE = {
+  role: "assistant",
+  content:
+    "Hi! I'm your AI Study Tutor. Ask me any study question and I'll explain it simply.",
+};
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim();
+
+function createErrorMessage(content) {
+  return {
+    role: "error",
+    content,
+  };
+}
+
+function getApiUrl(path) {
+  if (!API_BASE_URL) {
+    throw new Error(
+      "Frontend API URL is not configured. Set VITE_API_BASE_URL in frontend/.env.local.",
+    );
+  }
+
+  return `${API_BASE_URL.replace(/\/+$/, "")}${path}`;
+}
+
 function App() {
   const [prompt, setPrompt] = useState("");
-  const [messages, setMessages] = useState([
-    {
-      role: "assistant",
-      content:
-        "Hi! I'm your AI Study Tutor. Ask me any study question and I'll explain it simply.",
-    },
-  ]);
+  const [messages, setMessages] = useState([WELCOME_MESSAGE]);
   const [loading, setLoading] = useState(false);
 
   const messagesEndRef = useRef(null);
@@ -30,7 +49,7 @@ function App() {
     setLoading(true);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/chat", {
+      const res = await fetch(getApiUrl("/chat"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -38,11 +57,17 @@ function App() {
         body: JSON.stringify({ prompt: userMessage.content }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        throw new Error(
+          data?.detail || `Request failed with status ${res.status}.`,
+        );
+      }
 
       const aiMessage = {
         role: "assistant",
-        content: data.response || "No response from AI.",
+        content: data?.response || "No response from AI.",
       };
 
       setMessages((prev) => [...prev, aiMessage]);
@@ -51,10 +76,11 @@ function App() {
 
       setMessages((prev) => [
         ...prev,
-        {
-          role: "assistant",
-          content: "Something went wrong while contacting the backend.",
-        },
+        createErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "Something went wrong while contacting the backend.",
+        ),
       ]);
     } finally {
       setLoading(false);
@@ -69,13 +95,7 @@ function App() {
   };
 
   const clearChat = () => {
-    setMessages([
-      {
-        role: "assistant",
-        content:
-          "Hi! I'm your AI Study Tutor. Ask me any study question and I'll explain it simply.",
-      },
-    ]);
+    setMessages([WELCOME_MESSAGE]);
   };
 
   return (
@@ -139,6 +159,7 @@ function App() {
         >
           {messages.map((message, index) => {
             const isUser = message.role === "user";
+            const isError = message.role === "error";
 
             return (
               <div
@@ -154,9 +175,17 @@ function App() {
                     maxWidth: "75%",
                     padding: "12px 14px",
                     borderRadius: "16px",
-                    backgroundColor: isUser ? "#2563eb" : "#ffffff",
-                    color: isUser ? "#ffffff" : "#111827",
-                    border: isUser ? "none" : "1px solid #e5e7eb",
+                    backgroundColor: isUser
+                      ? "#2563eb"
+                      : isError
+                        ? "#fef2f2"
+                        : "#ffffff",
+                    color: isUser ? "#ffffff" : isError ? "#991b1b" : "#111827",
+                    border: isUser
+                      ? "none"
+                      : isError
+                        ? "1px solid #fecaca"
+                        : "1px solid #e5e7eb",
                     boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
                     whiteSpace: "pre-wrap",
                     lineHeight: 1.5,
@@ -167,10 +196,10 @@ function App() {
                       fontSize: "12px",
                       fontWeight: 700,
                       marginBottom: "6px",
-                      opacity: 0.8,
+                      opacity: isError ? 1 : 0.8,
                     }}
                   >
-                    {isUser ? "You" : "AI Tutor"}
+                    {isUser ? "You" : isError ? "System Error" : "AI Tutor"}
                   </div>
                   <div>{message.content}</div>
                 </div>
