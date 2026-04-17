@@ -3,15 +3,18 @@ import { useEffect, useRef, useState } from "react";
 const WELCOME_MESSAGE = {
   role: "assistant",
   content:
-    "Hi! I'm your AI Study Tutor. Ask me any study question and I'll explain it simply.",
+    "Hi! I'm your AI Study Buddy. Ask a study question, then keep following up and I'll remember the recent context.",
+  excludeFromHistory: true,
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim();
+const MAX_HISTORY_MESSAGES = 12;
 
 function createErrorMessage(content) {
   return {
     role: "error",
     content,
+    excludeFromHistory: true,
   };
 }
 
@@ -23,6 +26,17 @@ function getApiUrl(path) {
   }
 
   return `${API_BASE_URL.replace(/\/+$/, "")}${path}`;
+}
+
+function getConversationHistory(messages) {
+  return messages
+    .filter(
+      (message) =>
+        !message.excludeFromHistory &&
+        (message.role === "user" || message.role === "assistant"),
+    )
+    .slice(-MAX_HISTORY_MESSAGES)
+    .map(({ role, content }) => ({ role, content }));
 }
 
 function App() {
@@ -43,8 +57,9 @@ function App() {
       role: "user",
       content: prompt.trim(),
     };
+    const nextMessages = [...messages, userMessage];
 
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages(nextMessages);
     setPrompt("");
     setLoading(true);
 
@@ -54,7 +69,9 @@ function App() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ prompt: userMessage.content }),
+        body: JSON.stringify({
+          messages: getConversationHistory(nextMessages),
+        }),
       });
 
       const data = await res.json().catch(() => null);
@@ -127,10 +144,10 @@ function App() {
         >
           <div>
             <h1 style={{ margin: 0, fontSize: "24px", color: "#111827" }}>
-              AI Study Tutor
+              AI Study Buddy
             </h1>
             <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: "14px" }}>
-              Ask a study question and get a simple explanation.
+              Ask follow-up questions and the tutor will remember the recent conversation.
             </p>
           </div>
 
@@ -280,7 +297,7 @@ function App() {
             }}
           >
             <span style={{ fontSize: "13px", color: "#6b7280" }}>
-              Single-turn tutor UI with local chat history
+              Multi-turn study buddy with local session memory
             </span>
 
             <button

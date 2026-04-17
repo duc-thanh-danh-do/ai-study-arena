@@ -1,4 +1,5 @@
 import os
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,14 +22,76 @@ app.add_middleware(
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 model = genai.GenerativeModel("gemini-2.5-flash")
+MAX_HISTORY_MESSAGES = 12
+SYSTEM_PROMPT = """
+You are a helpful AI study tutor for university students.
+Your job is to explain concepts clearly, simply, and accurately.
+Keep answers concise but useful.
+Use the conversation history to maintain continuity between turns.
+If the student asks a follow-up question like "why?", "explain that again", or
+"give me an example", use the earlier context instead of starting over.
+When possible:
+- explain step by step
+- give a simple example
+- avoid unnecessary jargon
+- be supportive and educational
+"""
+
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
 
 
 class ChatRequest(BaseModel):
-    prompt: str
+    messages: list[ChatMessage]
 
 
 class ChatResponse(BaseModel):
     response: str
+
+
+def build_conversation_prompt(messages: list[ChatMessage]) -> str:
+    trimmed_messages = []
+
+    for message in messages[-MAX_HISTORY_MESSAGES:]:
+        content = message.content.strip()
+
+        if content:
+            trimmed_messages.append(ChatMessage(role=message.role, content=content))
+
+    if not trimmed_messages:
+        raise HTTPException(status_code=400, detail="Please enter a prompt.")
+
+    if trimmed_messages[-1].role != "user":
+        raise HTTPException(
+            status_code=400,
+            detail="The latest message must come from the user.",
+        )
+
+    conversation_lines = []
+    for message in trimmed_messages[:-1]:
+        speaker = "Student" if message.role == "user" else "Tutor"
+        conversation_lines.append(f"{speaker}: {message.content}")
+
+    latest_question = trimmed_messages[-1].content
+    previous_context = (
+        "\n\n".join(conversation_lines)
+        if conversation_lines
+        else "No prior conversation yet."
+    )
+
+    return f"""
+{SYSTEM_PROMPT}
+
+Previous conversation:
+{previous_context}
+
+Latest student question:
+Student: {latest_question}
+
+Tutor response:
+""".strip()
 
 
 @app.get("/")
@@ -49,23 +112,7 @@ def list_models():
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
-    user_prompt = request.prompt.strip()
-
-    if not user_prompt:
-        raise HTTPException(status_code=400, detail="Please enter a prompt.")
-
-    system_prompt = """
-    You are a helpful AI study tutor for university students.
-    Your job is to explain concepts clearly, simply, and accurately.
-    Keep answers concise but useful.
-    When possible:
-    - explain step by step
-    - give a simple example
-    - avoid unnecessary jargon
-    - be supportive and educational
-    """
-
-    final_prompt = f"{system_prompt}\n\nStudent question: {user_prompt}"
+    final_prompt = build_conversation_prompt(request.messages)
 
     try:
         gemini_response = model.generate_content(final_prompt)
