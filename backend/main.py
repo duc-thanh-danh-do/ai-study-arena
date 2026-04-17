@@ -54,8 +54,21 @@ def chat(request: ChatRequest):
     if not user_prompt:
         return {"response": "Please enter a prompt."}
 
+    system_prompt = """
+    You are a helpful AI study tutor for university students.
+    Your job is to explain concepts clearly, simply, and accurately.
+    Keep answers concise but useful.
+    When possible:
+    - explain step by step
+    - give a simple example
+    - avoid unnecessary jargon
+    - be supportive and educational
+    """
+
+    final_prompt = f"{system_prompt}\n\nStudent question: {user_prompt}"
+
     try:
-        gemini_response = model.generate_content(user_prompt)
+        gemini_response = model.generate_content(final_prompt)
         text = gemini_response.text if gemini_response.text else "No response from Gemini."
         return {"response": text}
     except Exception as e:

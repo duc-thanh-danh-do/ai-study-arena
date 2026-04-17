@@ -32,8 +32,8 @@ function App() {
 
   return (
     <div style={{ padding: "40px", fontFamily: "Arial", maxWidth: "700px" }}>
-      <h1>AI Study Arena</h1>
-
+      <h1>AI Study Tutor</h1>
+      <p>Ask a study question and get a simple explanation.</p>
       <textarea
         rows="5"
         style={{ width: "100%", marginBottom: "12px" }}
