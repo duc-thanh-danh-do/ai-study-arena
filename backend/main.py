@@ -36,6 +36,22 @@ When possible:
 - avoid unnecessary jargon
 - be supportive and educational
 """
+MODE_PROMPTS = {
+    "explain": """
+Mode: Explain
+- Focus on teaching the concept clearly.
+- Use short step-by-step explanations when helpful.
+- Give a simple example if it would improve understanding.
+""".strip(),
+    "quiz": """
+Mode: Quiz
+- Act like a study coach giving one short quiz question at a time.
+- If the student answers, briefly say whether the answer is correct or partly correct.
+- Give a short correction or explanation when needed.
+- After feedback, ask one next quiz question to continue the practice.
+- Keep the quiz concise and supportive.
+""".strip(),
+}
 
 
 class ChatMessage(BaseModel):
@@ -45,13 +61,17 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
+    mode: Literal["explain", "quiz"] = "explain"
 
 
 class ChatResponse(BaseModel):
     response: str
 
 
-def build_conversation_prompt(messages: list[ChatMessage]) -> str:
+def build_conversation_prompt(
+    messages: list[ChatMessage],
+    mode: Literal["explain", "quiz"],
+) -> str:
     trimmed_messages = []
 
     for message in messages[-MAX_HISTORY_MESSAGES:]:
@@ -80,9 +100,12 @@ def build_conversation_prompt(messages: list[ChatMessage]) -> str:
         if conversation_lines
         else "No prior conversation yet."
     )
+    mode_prompt = MODE_PROMPTS[mode]
 
     return f"""
 {SYSTEM_PROMPT}
+
+{mode_prompt}
 
 Previous conversation:
 {previous_context}
@@ -112,7 +135,7 @@ def list_models():
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
-    final_prompt = build_conversation_prompt(request.messages)
+    final_prompt = build_conversation_prompt(request.messages, request.mode)
 
     try:
         gemini_response = model.generate_content(final_prompt)

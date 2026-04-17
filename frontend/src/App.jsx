@@ -1,10 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 
-const WELCOME_MESSAGE = {
-  role: "assistant",
-  content:
-    "Hi! I'm your AI Study Buddy. Ask a study question, then keep following up and I'll remember the recent context.",
-  excludeFromHistory: true,
+const CHAT_MODES = {
+  explain: {
+    label: "Explain",
+    description: "Get clear explanations with follow-up memory.",
+    welcomeMessage:
+      "Explain mode is on. Ask a study question, then keep following up and I'll remember the recent context.",
+  },
+  quiz: {
+    label: "Quiz",
+    description: "Practice with one quiz question at a time.",
+    welcomeMessage:
+      "Quiz mode is on. Tell me a topic or answer the next question, and I'll quiz you step by step.",
+  },
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim();
@@ -39,9 +47,18 @@ function getConversationHistory(messages) {
     .map(({ role, content }) => ({ role, content }));
 }
 
+function createWelcomeMessage(mode) {
+  return {
+    role: "assistant",
+    content: CHAT_MODES[mode].welcomeMessage,
+    excludeFromHistory: true,
+  };
+}
+
 function App() {
   const [prompt, setPrompt] = useState("");
-  const [messages, setMessages] = useState([WELCOME_MESSAGE]);
+  const [mode, setMode] = useState("explain");
+  const [messages, setMessages] = useState([createWelcomeMessage("explain")]);
   const [loading, setLoading] = useState(false);
 
   const messagesEndRef = useRef(null);
@@ -71,6 +88,7 @@ function App() {
         },
         body: JSON.stringify({
           messages: getConversationHistory(nextMessages),
+          mode,
         }),
       });
 
@@ -112,7 +130,15 @@ function App() {
   };
 
   const clearChat = () => {
-    setMessages([WELCOME_MESSAGE]);
+    setMessages([createWelcomeMessage(mode)]);
+  };
+
+  const handleModeChange = (nextMode) => {
+    if (loading || nextMode === mode) return;
+
+    setMode(nextMode);
+    setPrompt("");
+    setMessages([createWelcomeMessage(nextMode)]);
   };
 
   return (
@@ -147,19 +173,21 @@ function App() {
               AI Study Buddy
             </h1>
             <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: "14px" }}>
-              Ask follow-up questions and the tutor will remember the recent conversation.
+              {CHAT_MODES[mode].description}
             </p>
           </div>
 
           <button
             onClick={clearChat}
+            disabled={loading}
             style={{
               padding: "10px 14px",
               borderRadius: "10px",
               border: "1px solid #d1d5db",
               backgroundColor: "#ffffff",
-              cursor: "pointer",
+              cursor: loading ? "not-allowed" : "pointer",
               fontWeight: 600,
+              opacity: loading ? 0.7 : 1,
             }}
           >
             Clear Chat
@@ -169,11 +197,76 @@ function App() {
         <div
           style={{
             flex: 1,
-            overflowY: "auto",
-            padding: "20px 24px",
-            backgroundColor: "#f9fafb",
+            display: "flex",
+            flexDirection: "column",
+            minHeight: 0,
           }}
         >
+          <div
+            style={{
+              padding: "14px 24px",
+              borderBottom: "1px solid #e5e7eb",
+              backgroundColor: "#f8fafc",
+              display: "flex",
+              gap: "10px",
+              flexWrap: "wrap",
+            }}
+          >
+            {Object.entries(CHAT_MODES).map(([modeKey, modeConfig]) => {
+              const isActive = modeKey === mode;
+
+              return (
+                <button
+                  key={modeKey}
+                  onClick={() => handleModeChange(modeKey)}
+                  disabled={loading}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: "999px",
+                    border: isActive ? "1px solid #2563eb" : "1px solid #d1d5db",
+                    backgroundColor: isActive ? "#dbeafe" : "#ffffff",
+                    color: isActive ? "#1d4ed8" : "#374151",
+                    cursor: loading ? "not-allowed" : "pointer",
+                    fontWeight: 700,
+                    fontSize: "13px",
+                    opacity: loading ? 0.7 : 1,
+                  }}
+                >
+                  {modeConfig.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div
+            style={{
+              padding: "10px 24px 0",
+              backgroundColor: "#f9fafb",
+            }}
+          >
+            <div
+              style={{
+                display: "inline-flex",
+                padding: "6px 10px",
+                borderRadius: "999px",
+                backgroundColor: "#eff6ff",
+                color: "#1d4ed8",
+                fontSize: "12px",
+                fontWeight: 700,
+              }}
+            >
+              Active mode: {CHAT_MODES[mode].label}
+            </div>
+          </div>
+
+          <div
+            style={{
+              flex: 1,
+              overflowY: "auto",
+              padding: "20px 24px",
+              backgroundColor: "#f9fafb",
+            }}
+          >
           {messages.map((message, index) => {
             const isUser = message.role === "user";
             const isError = message.role === "error";
@@ -259,6 +352,7 @@ function App() {
           )}
 
           <div ref={messagesEndRef} />
+          </div>
         </div>
 
         <div
@@ -297,7 +391,7 @@ function App() {
             }}
           >
             <span style={{ fontSize: "13px", color: "#6b7280" }}>
-              Multi-turn study buddy with local session memory
+              Multi-turn study buddy with session memory and mode switching
             </span>
 
             <button
