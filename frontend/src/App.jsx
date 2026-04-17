@@ -6,7 +6,7 @@ function App() {
     {
       role: "assistant",
       content:
-        "Hi! I’m your AI Study Tutor. Ask me any study question and I’ll explain it simply.",
+        "Hi! I'm your AI Study Tutor. Ask me any study question and I'll explain it simply.",
     },
   ]);
   const [loading, setLoading] = useState(false);
@@ -73,7 +73,7 @@ function App() {
       {
         role: "assistant",
         content:
-          "Hi! I’m your AI Study Tutor. Ask me any study question and I’ll explain it simply.",
+          "Hi! I'm your AI Study Tutor. Ask me any study question and I'll explain it simply.",
       },
     ]);
   };
@@ -81,22 +81,18 @@ function App() {
   return (
     <div
       style={{
-        minHeight: "100vh",
+        minHeight: "100dvh",
         backgroundColor: "#f5f7fb",
-        padding: "24px",
-        boxSizing: "border-box",
-        fontFamily: "Arial, sans-serif",
+        width: "100%",
       }}
     >
       <div
         style={{
-          maxWidth: "900px",
-          margin: "0 auto",
+          width: "100%",
+          minHeight: "100dvh",
           backgroundColor: "#ffffff",
-          borderRadius: "16px",
-          boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
-          overflow: "hidden",
-          border: "1px solid #e5e7eb",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
         <div
@@ -135,9 +131,9 @@ function App() {
 
         <div
           style={{
-            height: "500px",
+            flex: 1,
             overflowY: "auto",
-            padding: "20px",
+            padding: "20px 24px",
             backgroundColor: "#f9fafb",
           }}
         >
